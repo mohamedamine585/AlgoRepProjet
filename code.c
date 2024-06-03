@@ -25,6 +25,7 @@ void child_process(int index) {
     sem_wait(sem);
     printf("Le fils %d commence à travailler\n", getpid());
     sleep(2 + index);
+    for (long i = 0; i < 1000000000L * (child_num + 1); i++);
     kill(getppid(), SIGUSR2);
     sem_post(sem);
     exit(EXIT_SUCCESS);

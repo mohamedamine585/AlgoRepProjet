@@ -7,40 +7,26 @@
 #include <sys/wait.h>
 #include <errno.h>
 
-// Nom du sémaphore
-#define SEM_NAME "/semaphore_example"
-
-// Nombre de processus fils
+#define SEM_NAME "/exemple_semaphore"
 #define NUM_CHILDREN 4
 
 sem_t *sem;
 
 void handle_sigusr1(int sig) {
-    // Handler pour SIGUSR1
-    printf("Child %d received SIGUSR1\n", getpid());
+    printf("Le fils %d a reçu SIGUSR1\n", getpid());
 }
 
 void handle_sigusr2(int sig) {
-    // Handler pour SIGUSR2
-    printf("Parent received SIGUSR2 from child\n");
+    printf("Le parent a reçu SIGUSR2 du fils\n");
 }
 
 void child_process(int index) {
     signal(SIGUSR1, handle_sigusr1);
-
-    // Attendre le signal de départ du père
     sem_wait(sem);
-
-    // Simuler une tâche complexe
-    printf("Child %d starts working\n", getpid());
-    sleep(2 + index);  // Simule une tâche de différentes durées
-
-    // Envoyer le signal de confirmation au père
+    printf("Le fils %d commence à travailler\n", getpid());
+    sleep(2 + index);
     kill(getppid(), SIGUSR2);
-
-    // Débloquer un autre processus fils
     sem_post(sem);
-
     exit(EXIT_SUCCESS);
 }
 
@@ -48,45 +34,38 @@ int main() {
     pid_t children[NUM_CHILDREN];
     int i;
 
-    // Créer le sémaphore
     sem = sem_open(SEM_NAME, O_CREAT | O_EXCL, 0644, 0);
     if (sem == SEM_FAILED) {
-        perror("sem_open failed");
+        perror("sem_open a échoué");
         exit(EXIT_FAILURE);
     }
 
-    // Créer les processus fils
     for (i = 0; i < NUM_CHILDREN; i++) {
         children[i] = fork();
         if (children[i] == -1) {
-            perror("fork failed");
+            perror("fork a échoué");
             exit(EXIT_FAILURE);
         } else if (children[i] == 0) {
-            // Code du processus fils
             child_process(i);
         }
     }
 
-    // Installer le gestionnaire pour SIGUSR2
     signal(SIGUSR2, handle_sigusr2);
 
-    // Envoyer le signal de départ à tous les processus fils
     for (i = 0; i < NUM_CHILDREN; i++) {
         kill(children[i], SIGUSR1);
     }
 
-    // Débloquer le premier processus fils
     sem_post(sem);
 
-    // Attendre les confirmations des processus fils
     for (i = 0; i < NUM_CHILDREN; i++) {
         wait(NULL);
     }
 
-    // Nettoyer le sémaphore
     sem_close(sem);
     sem_unlink(SEM_NAME);
 
-    printf("Parent process completed\n");
+    printf("Le processus parent a terminé\n");
     return EXIT_SUCCESS;
 }
+
